@@ -47,6 +47,7 @@ double LotsOptimized()
    lot=NormalizeDouble(AccountFreeMargin()*MaximumRisk/1000.0,1);
 //--- calculate number of losses orders without a break
    if(DecreaseFactor>0)
+   //DecreaseFactorは資産の減少率だが実際どのような値を返すのかわからない
      {
       for(int i=orders-1;i>=0;i--)
         {
@@ -113,7 +114,7 @@ void CheckForClose()
       //--- check order type
       if(OrderType()==OP_BUY)
         {
-         if(Bid-OrderOpenPrice()>Ask-Bid && iRSI(NULL,0,GPeriod,PRICE_MEDIAN,0)>80)
+         if(Bid-OrderOpenPrice()>Ask-Bid && iRSI(NULL,0,GPeriod,PRICE_MEDIAN,0)>70)
            {
             if(!OrderClose(OrderTicket(),OrderLots(),Bid,3,White))
                Print("OrderClose error ",GetLastError());
@@ -135,7 +136,7 @@ void CheckForClose()
         }
       if(OrderType()==OP_SELL)
         {
-         if(OrderOpenPrice()-Ask>Ask-Bid && iRSI(NULL,0,GPeriod,PRICE_MEDIAN,0)<20)
+         if(OrderOpenPrice()-Ask>Ask-Bid && iRSI(NULL,0,GPeriod,PRICE_MEDIAN,0)<30)
            {
             if(!OrderClose(OrderTicket(),OrderLots(),Ask,3,White))
                Print("OrderClose error ",GetLastError());
