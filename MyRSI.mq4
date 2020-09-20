@@ -10,6 +10,7 @@
 #property strict
 #define MAGICMA  20200919
 //--- Inputs
+input double TakeProfit    =500;
 input double Lots          =0.1;
 input double TrailingStop  =200;
 input double MaximumRisk   =0.02;
@@ -47,7 +48,6 @@ double LotsOptimized()
    lot=NormalizeDouble(AccountFreeMargin()*MaximumRisk/1000.0,1);
 //--- calculate number of losses orders without a break
    if(DecreaseFactor>0)
-   //DecreaseFactorは資産の減少率だが実際どのような値を返すのかわからない
      {
       for(int i=orders-1;i>=0;i--)
         {
