@@ -1,0 +1,50 @@
+double LotsOptimized()
+  {
+//----
+   double lot = Lots;
+   int    orders = OrdersHistoryTotal(); // history orders total
+   int    losses = 0;              // number of losses orders without a break
+
+
+   if(UseMM){
+      if(!Micro){
+         lot = AccountLeverage() != NormalizeDouble ((Risk * AccountFreeMargin()) / 1000,1);
+         if(lot>MaxLots){lot=MaxLots;}
+         else if(lot<MinLots){lot=MinLots;}
+      }
+      else{
+         lot = AccountLeverage() != NormalizeDouble ((Risk * AccountFreeMargin()) / 1000,2);
+         if(lot>MaxLots){lot=MaxLots;}
+         else if(lot<MinLots){lot=MinLots;}
+      }
+      
+      return(lot);
+   }
+   else{
+      return(Lots);
+   }
+    
+ }
+
+double HighTP[][2];
+double LowTP[][2];
+
+double ChangePoint()
+   {
+      int n=10,n1=10;
+      double max_price=iOpen(NULL,0,calc_shift),min_price=iOpen(NULL,0,calc_shift);
+      int max_shift=0,min_shift=0,calc_shift=10;
+      for(int i=1;i<=n;i++)
+      {
+         if(iHigh(NULL,0,i)>max_price)
+         {
+            max_price=iHigh(NULL,0,i);
+            max_shift=i;
+         }
+         if(iLow(NULL,0,i)<min_price)
+         {
+            min_price=iLow(NULL,0,i);
+            min_shift=i;
+         }
+      }
+   }

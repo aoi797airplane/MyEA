@@ -19,6 +19,10 @@ input double MaximumRisk   =0.02;
 input double DecreaseFactor=3;
 input int    GPeriod       =14;
 input double LossCutPoint  =0.04;
+
+input int    MaximumPosition=3;
+
+
 //+------------------------------------------------------------------+
 //| Calculate open positions                                         |
 //+------------------------------------------------------------------+
@@ -98,14 +102,7 @@ while(true)
    if(IsTradeAllowed()== true)
    {
       RefreshRates();
-      if(iRSI(NULL,0,GPeriod,PRICE_MEDIAN,1)>70)
-      {
-        if (iRSI(NULL,0,GPeriod,PRICE_MEDIAN,0)<=70)
-        {   
-            res=OrderSend(Symbol(),OP_SELL,LotsOptimized(),Bid,3,0,Bid-TakeProfit*Point,"MyRSI",MAGICMA,0,Red);
-        }
-        return;
-      }
+      res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+TakeProfit*Point,"MyRSI",MAGICMA,0,Blue)
       if(res != -1){
       break;
       }

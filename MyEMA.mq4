@@ -3,22 +3,20 @@
 //|                                                     Aoi Morimoto |
 //|                                         https://fx-libraries.com/|
 //+------------------------------------------------------------------+
-#include <stdlib.mqh>
-#property copyright "Aoi Morimoto, Koh Ikeuchi"
+#property copyright "Aoi Morimoto"
 #property link      "https://fx-libraries.com/"
 #property description "Relative Strength Index Expert Advisor"
 #property version   "1.01"
 #property strict
 #define MAGICMA  20200919
 //--- Inputs
-input double TakeProfit    =500;
-input double Lots          =0.1;
-input double MinimumLots   =0.01;
-input double TrailingStop  =200;
-input double MaximumRisk   =0.02;
-input double DecreaseFactor=3;
-input int    GPeriod       =14;
-input double LossCutPoint  =0.04;
+input double TakeProfit     =500;
+input double Lots           =0.1;
+input double TrailingStop   =200;
+input double MaximumRisk    =0.02;
+input double DecreaseFactor =3;
+input int    SMIPeriod_long =200;
+input int    SMIPeriod_short=25
 //+------------------------------------------------------------------+
 //| Calculate open positions                                         |
 //+------------------------------------------------------------------+
@@ -48,8 +46,7 @@ double LotsOptimized()
    int    orders=OrdersHistoryTotal();     // history orders total
    int    losses=0;                  // number of losses orders without a break
 //--- select lot size
-   //---
-   
+   lot=NormalizeDouble(AccountFreeMargin()*MaximumRisk/1000.0,1);
 //--- calculate number of losses orders without a break
    if(DecreaseFactor>0)
      {
@@ -73,79 +70,39 @@ double LotsOptimized()
    if(lot<0.1) lot=0.1;
    return(lot);
   }
+
+
 //+------------------------------------------------------------------+
 //| Check for open order conditions                                  |
 //+------------------------------------------------------------------+
 void CheckForOpen()
-   {
+  {
     int    res;
-    int WaitingTime = 10;
-    int starttime = GetTickCount();
 //--- go trading only for first tiks of new bar
     if(Volume[0]>1) return;
-    
     //エラーが出ないように変える必要あり
+    double ema_short=iMA(NULL,0,SMIPeriod_short,0,MODE_EMA,PRICE_CLOSE,0)
+    double ema_long=iMA(NULL,0,SMIPeriod_long,0,MODE_EMA,PRICE_CLOSE,0);
 //--- sell conditions
-     
-     
-while(true)
-{
-   if(GetTickCount() - starttime > WaitingTime*1000)
-   {
-      Alert("ordersend timeout. check the experts log");
-     
-   }
-   if(IsTradeAllowed()== true)
-   {
-      RefreshRates();
-      if(iRSI(NULL,0,GPeriod,PRICE_MEDIAN,1)>70)
-      {
-        if (iRSI(NULL,0,GPeriod,PRICE_MEDIAN,0)<=70)
-        {   
-            res=OrderSend(Symbol(),OP_SELL,LotsOptimized(),Bid,3,0,Bid-TakeProfit*Point,"MyRSI",MAGICMA,0,Red);
-        }
-        return;
-      }
-      if(res != -1){
-      break;
-      }
-      int err = GetLastError();
-      Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
-   }
-   Sleep(100);
-}
-     
-   
-//--- buy conditions
-while(true)
-{
-   if(GetTickCount() - starttime > WaitingTime*1000)
-   {
-      Alert("ordersend timeout. check the experts log");
-     
-   }
-   if(IsTradeAllowed()== true)
-   {
-    RefreshRates();
-    if(iRSI(NULL,0,GPeriod,PRICE_MEDIAN,1)<30)
+    if(ema_short<ema_long)
     {
-        if(iRSI(NULL,0,GPeriod,PRICE_MEDIAN,0)>=30)
+        if(Ask>ema_long)
         {
-         res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,0,Ask+TakeProfit*Point,"MyRSI",MAGICMA,0,Blue);
+            res=OrderSend(Symbol(),OP_SELL,LotsOptimized(),Bid,3,Bid+TakeProfit*Point,Bid-TakeProfit*Point,"MyEMA",MAGICMA,0,Red);
         }
         return;
     }
-      if(res != -1){
-      break;
-      }
-      int err = GetLastError();
-      Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
-   }
-   Sleep(100);
-}
-
+//--- buy conditions
+    if(ema_short>ema_long)
+    {
+        if(Bid<ema_long)
+        {
+            res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-TakeProfit*Point,Ask+TakeProfit*Point,"MyEMA",MAGICMA,0,Blue);
+        }
+        return;
+    }
 //---
-}
+  }
 //+------------------------------------------------------------------+
 //| Check for close order conditions                                 |
 //+------------------------------------------------------------------+
@@ -163,11 +120,6 @@ void CheckForClose()
       if(OrderType()==OP_BUY)
         {
          if(Bid-OrderOpenPrice()>Ask-Bid && iRSI(NULL,0,GPeriod,PRICE_MEDIAN,0)>70)
-           {
-            if(!OrderClose(OrderTicket(),OrderLots(),Bid,3,White))
-               Print("OrderClose error ",GetLastError());
-           }
-         if(MathAbs(Bid-OrderOpenPrice())>OrderOpenPrice()*LossCutPoint)
            {
             if(!OrderClose(OrderTicket(),OrderLots(),Bid,3,White))
                Print("OrderClose error ",GetLastError());
@@ -192,11 +144,6 @@ void CheckForClose()
          if(OrderOpenPrice()-Ask>Ask-Bid && iRSI(NULL,0,GPeriod,PRICE_MEDIAN,0)<30)
            {
             if(!OrderClose(OrderTicket(),OrderLots(),Ask,3,White))
-               Print("OrderClose error ",GetLastError());
-           }
-         if(MathAbs(OrderOpenPrice()-Ask)>OrderOpenPrice()*LossCutPoint)
-           {
-            if(!OrderClose(OrderTicket(),OrderLots(),Bid,3,White))
                Print("OrderClose error ",GetLastError());
            }
          if(TrailingStop>0)
@@ -226,7 +173,7 @@ void OnTick()
       return;
 //--- calculate open orders by current symbol
    if(CalculateCurrentOrders(Symbol())==0) CheckForOpen();
-   else                                    CheckForClose();
+   //else                                    CheckForClose();
 //---
   }
 //+------------------------------------------------------------------+
