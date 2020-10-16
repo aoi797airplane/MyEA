@@ -21,7 +21,7 @@ input int    GPeriod       =14;
 input double LossCutPoint  =0.04;
 
 input int    MaximumPosition=3;
-
+input double PriceRange    =50;
 
 //+------------------------------------------------------------------+
 //| Calculate open positions                                         |
@@ -77,70 +77,90 @@ double LotsOptimized()
    if(lot<0.1) lot=0.1;
    return(lot);
   }
+  
+//+------------------------------------------------------------------+
+//| Check for position                                               |
+//+------------------------------------------------------------------+
+void CheckForPosition()
+{
+    int PositionCount=0;
+    int OrderCount=0;
+    double MaxOpenPrice,MinOpenPrice;
+    double PositionPrices[][2],OrderPrices[][2];
+    ArrayInitializer(PositionPrices)
+    ArrayInitializer(OrderPrices)
+
+    for(int i=0;i<OrdersHistoryTotal();i++)
+    {
+        if(OrderSelect(i,SELECT_BY_POS)==false) break;
+        if(OrderSymbol() != Symbol() || OrderMagicNumber() != MAGICMA) continue;
+
+        if(OrderType() == OP_BUY)
+        {
+            PositionPrices[PositionCount] = {OrderOpenPrice(),OrderTicket()};
+            PositionCount++;
+        }
+        if(OrderType() == OP_BUYLIMIT)
+        {
+            OrderPrices[OrderCount] = {OrderOpenPrice(),OrderTicket()};
+            OrderCount++;
+        }
+    }
+
+    ArraySort(PositionPrices,WHOLE_ARRAY,0,MODE_DESCEND);
+    ArraySort(OrderPrices,WHOLE_ARRAY,0,MODE_DESCEND);
+
+}
 //+------------------------------------------------------------------+
 //| Check for open order conditions                                  |
 //+------------------------------------------------------------------+
 void CheckForOpen()
-   {
+{
     int    res;
     int WaitingTime = 10;
     int starttime = GetTickCount();
 //--- go trading only for first tiks of new bar
     if(Volume[0]>1) return;
     
-    //エラーが出ないように変える必要あり
-//--- sell conditions
-     
-     
-while(true)
-{
-   if(GetTickCount() - starttime > WaitingTime*1000)
-   {
-      Alert("ordersend timeout. check the experts log");
-     
-   }
-   if(IsTradeAllowed()== true)
-   {
-      RefreshRates();
-      res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+TakeProfit*Point,"MyRSI",MAGICMA,0,Blue)
-      if(res != -1){
-      break;
-      }
-      int err = GetLastError();
-      Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
-   }
-   Sleep(100);
-}
-     
-   
-//--- buy conditions
-while(true)
-{
-   if(GetTickCount() - starttime > WaitingTime*1000)
-   {
-      Alert("ordersend timeout. check the experts log");
-     
-   }
-   if(IsTradeAllowed()== true)
-   {
-    RefreshRates();
-    if(iRSI(NULL,0,GPeriod,PRICE_MEDIAN,1)<30)
+//--- first buy action
+    if(PositionCount+OrderCount == 0)
     {
-        if(iRSI(NULL,0,GPeriod,PRICE_MEDIAN,0)>=30)
-        {
-         res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,0,Ask+TakeProfit*Point,"MyRSI",MAGICMA,0,Blue);
-        }
-        return;
-    }
-      if(res != -1){
-      break;
-      }
-      int err = GetLastError();
-      Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
-   }
-   Sleep(100);
-}
+        res=OrderSend((Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue))
+        if(res != -1) break;
+        int err = GetLastError();
+        Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+        
+        res=OrderSend((Symbol(),OP_BUYLIMIT,LotsOptimized(),Ask-PriceRange*Point,3,Ask-PriceRange*Point-LossCutPoint*Point,Ask-PriceRange*Point+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue))
+        if(res != -1) break;
+        int err = GetLastError();
+        Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+        
+        res=OrderSend((Symbol(),OP_BUYLIMIT,LotsOptimized(),Ask-2*PriceRange*Point,3,Ask-2*PriceRange*Point-LossCutPoint*Point,Ask-2*PriceRange*Point+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue))
+        if(res != -1) break;
+        int err = GetLastError();
+        Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
 
+    }
+
+
+
+    while(true)
+    {
+        if(GetTickCount() - starttime > WaitingTime*1000)
+        {
+            Alert("ordersend timeout. check the experts log");
+                
+        }
+        if(IsTradeAllowed()== true)
+        {
+            RefreshRates();
+            res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue)
+            if(res != -1) break;
+            int err = GetLastError();
+            Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+        }
+        Sleep(100);
+    }
 //---
 }
 //+------------------------------------------------------------------+
