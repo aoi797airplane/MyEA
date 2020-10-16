@@ -1,15 +1,15 @@
 //+------------------------------------------------------------------+
-//|                                                        MyRSI.mq4 |
+//|                                                   LoopIfDone.mq4 |
 //|                                                     Aoi Morimoto |
 //|                                         https://fx-libraries.com/|
 //+------------------------------------------------------------------+
 #include <stdlib.mqh>
-#property copyright "Aoi Morimoto, Koh Ikeuchi"
+#property copyright "Aoi Morimoto"
 #property link      "https://fx-libraries.com/"
-#property description "Relative Strength Index Expert Advisor"
+#property description "Loop If Done Expert Advisor"
 #property version   "1.01"
 #property strict
-#define MAGICMA  20200919
+#define MAGICMA  20201016
 //--- Inputs
 input double TakeProfit    =500;
 input double Lots          =0.1;
