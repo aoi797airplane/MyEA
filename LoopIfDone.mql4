@@ -9,7 +9,7 @@
 #property description "Loop If Done Expert Advisor"
 #property version   "1.01"
 #property strict
-#define MAGICMA  20201016
+#define MAGICMA  20201015
 //--- Inputs
 input double TakeProfit    =500;
 input double Lots          =0.1;
