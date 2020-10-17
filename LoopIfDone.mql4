@@ -24,6 +24,18 @@ input int    MaximumPosition=3;
 input double PriceRange    =50;
 
 //+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+    double NowPositionPrices[MaximumPosition][2],NowOrderPrices[MaximumPosition][2];
+    double OldPositionPrices[MaximumPosition][2],OldOrderPrices[MaximumPosition][2];
+
+    ArrayInitializer(NowPositionPrices);
+    ArrayInitializer(NowOrderPrices);
+    
+}
+//+------------------------------------------------------------------+
 //| Calculate open positions                                         |
 //+------------------------------------------------------------------+
 int CalculateCurrentOrders(string symbol)
@@ -79,16 +91,19 @@ double LotsOptimized()
   }
   
 //+------------------------------------------------------------------+
-//| Check for position                                               |
+//| Check for position and order                                     |
 //+------------------------------------------------------------------+
 void CheckForPosition()
 {
     int PositionCount=0;
     int OrderCount=0;
     double MaxOpenPrice,MinOpenPrice;
-    double PositionPrices[][2],OrderPrices[][2];
-    ArrayInitializer(PositionPrices)
-    ArrayInitializer(OrderPrices)
+    
+    ArrayCopy(NowPositionPrices,OldPositionPrices);
+    ArrayCopy(NowOrderPrices,OldOrderPrices);
+
+    ArrayInitializer(NowPositionPrices);
+    ArrayInitializer(NowOrderPrices);
 
     for(int i=0;i<OrdersHistoryTotal();i++)
     {
@@ -97,18 +112,18 @@ void CheckForPosition()
 
         if(OrderType() == OP_BUY)
         {
-            PositionPrices[PositionCount] = {OrderOpenPrice(),OrderTicket()};
+            NowPositionPrices[PositionCount] = {OrderOpenPrice(),OrderTicket()};
             PositionCount++;
         }
         if(OrderType() == OP_BUYLIMIT)
         {
-            OrderPrices[OrderCount] = {OrderOpenPrice(),OrderTicket()};
+            NowOrderPrices[OrderCount] = {OrderOpenPrice(),OrderTicket()};
             OrderCount++;
         }
     }
 
-    ArraySort(PositionPrices,WHOLE_ARRAY,0,MODE_DESCEND);
-    ArraySort(OrderPrices,WHOLE_ARRAY,0,MODE_DESCEND);
+    ArraySort(NowPositionPrices,WHOLE_ARRAY,0,MODE_DESCEND);
+    ArraySort(NowOrderPrices,WHOLE_ARRAY,0,MODE_DESCEND);
 
 }
 //+------------------------------------------------------------------+
@@ -117,8 +132,6 @@ void CheckForPosition()
 void CheckForOpen()
 {
     int    res;
-    int WaitingTime = 10;
-    int starttime = GetTickCount();
 //--- go trading only for first tiks of new bar
     if(Volume[0]>1) return;
     
@@ -130,38 +143,16 @@ void CheckForOpen()
         int err = GetLastError();
         Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
         
-        res=OrderSend((Symbol(),OP_BUYLIMIT,LotsOptimized(),Ask-PriceRange*Point,3,Ask-PriceRange*Point-LossCutPoint*Point,Ask-PriceRange*Point+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue))
-        if(res != -1) break;
-        int err = GetLastError();
-        Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
-        
-        res=OrderSend((Symbol(),OP_BUYLIMIT,LotsOptimized(),Ask-2*PriceRange*Point,3,Ask-2*PriceRange*Point-LossCutPoint*Point,Ask-2*PriceRange*Point+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue))
-        if(res != -1) break;
-        int err = GetLastError();
-        Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
-
-    }
-
-
-
-    while(true)
-    {
-        if(GetTickCount() - starttime > WaitingTime*1000)
+        for(int i=1,i<MaximumPosition,i++)
         {
-            Alert("ordersend timeout. check the experts log");
-                
-        }
-        if(IsTradeAllowed()== true)
-        {
-            RefreshRates();
-            res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue)
+            res=OrderSend((Symbol(),OP_BUYLIMIT,LotsOptimized(),Ask-i*PriceRange*Point,3,Ask-i*PriceRange*Point-LossCutPoint*Point,Ask-i*PriceRange*Point+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue))
             if(res != -1) break;
             int err = GetLastError();
             Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
         }
-        Sleep(100);
+
     }
-//---
+
 }
 //+------------------------------------------------------------------+
 //| Check for close order conditions                                 |
