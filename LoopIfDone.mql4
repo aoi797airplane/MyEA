@@ -138,19 +138,40 @@ void CheckForOpen()
 //--- first buy action
     if(PositionCount+OrderCount == 0)
     {
-        res=OrderSend((Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue))
-        if(res != -1) break;
-        int err = GetLastError();
-        Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
-        
-        for(int i=1,i<MaximumPosition,i++)
+        res=OrderSend((Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue));
+        if(res != -1)
         {
-            res=OrderSend((Symbol(),OP_BUYLIMIT,LotsOptimized(),Ask-i*PriceRange*Point,3,Ask-i*PriceRange*Point-LossCutPoint*Point,Ask-i*PriceRange*Point+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue))
-            if(res != -1) break;
             int err = GetLastError();
             Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
         }
+        
+        
+        for(int i=1,i<MaximumPosition,i++)
+        {
+            res=OrderSend((Symbol(),OP_BUYLIMIT,LotsOptimized(),Ask-i*PriceRange*Point,3,Ask-i*PriceRange*Point-LossCutPoint*Point,Ask-i*PriceRange*Point+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue));
+            if(res != -1)
+            {
+                int err = GetLastError();
+                Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+            }
+        }
 
+    }
+
+    if(NowPositionPrices == OldPositionPrices)
+    {
+        if(NowOrderPrices == OldOrderPrices) return;
+    }
+    else
+    {
+        for(int i=0;i<MaximumPosition;i++)
+        {
+            if(NowPositionPrices[i]==OldPositionPrices[i]) continue;
+            else
+            {
+
+            }
+        }
     }
 
 }
@@ -233,8 +254,7 @@ void OnTick()
    if(Bars<100 || IsTradeAllowed()==false)
       return;
 //--- calculate open orders by current symbol
-   if(CalculateCurrentOrders(Symbol())==0) CheckForOpen();
-   else                                    CheckForClose();
+   CheckForOpen();
 //---
   }
 //+------------------------------------------------------------------+
