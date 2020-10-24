@@ -11,29 +11,32 @@
 #property strict
 #define MAGICMA  20201015
 //--- Inputs
-input double TakeProfit    =500;
-input double Lots          =0.1;
-input double MinimumLots   =0.01;
-input double TrailingStop  =200;
-input double MaximumRisk   =0.02;
-input double DecreaseFactor=3;
-input int    GPeriod       =14;
-input double LossCutPoint  =0.04;
+input double TakeProfit     =500;
+input double Lots           =0.1;
+input double MinimumLots    =0.01;
+input double TrailingStop   =200;
+input double MaximumRisk    =0.02;
+input double DecreaseFactor =3;
 
 input int    MaximumPosition=3;
-input double PriceRange    =50;
+input double PriceRange     =15;
+input string x="損切りあり(推奨):0, 損切りなし:1";
+input int    LossCut        =0;
+double tmp_array[][2];
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit()
 {
-    double NowPositionPrices[MaximumPosition][2],NowOrderPrices[MaximumPosition][2];
-    double OldPositionPrices[MaximumPosition][2],OldOrderPrices[MaximumPosition][2];
-
-    ArrayInitializer(NowPositionPrices);
-    ArrayInitializer(NowOrderPrices);
+    int PositionCount,OrderCount;
+    double LossCutPoint      = PriceRange*3;
+    double NowPositionPrices = ArrayResize(tmp_array,MaximumPosition);
+    double NowOrderPrices    = ArrayResize(tmp_array,MaximumPosition);
+    double OldPositionPrices = ArrayResize(tmp_array,MaximumPosition);
+    double OldOrderPrices    = ArrayResize(tmp_array,MaximumPosition);
     
+    return(INIT_SUCCEEDED);
 }
 //+------------------------------------------------------------------+
 //| Calculate open positions                                         |
@@ -63,10 +66,10 @@ double LotsOptimized()
    double lot=Lots;
    int    orders=OrdersHistoryTotal();     // history orders total
    int    losses=0;                  // number of losses orders without a break
-//--- select lot size
-   //---
+    //--- select lot size
+    //---
    
-//--- calculate number of losses orders without a break
+    //--- calculate number of losses orders without a break
    if(DecreaseFactor>0)
      {
       for(int i=orders-1;i>=0;i--)
@@ -102,10 +105,10 @@ void CheckForPosition()
     ArrayCopy(NowPositionPrices,OldPositionPrices);
     ArrayCopy(NowOrderPrices,OldOrderPrices);
 
-    ArrayInitializer(NowPositionPrices);
-    ArrayInitializer(NowOrderPrices);
+    ArrayInitializer(NowPositionPrices,0);
+    ArrayInitializer(NowOrderPrices,0);
 
-    for(int i=0;i<OrdersHistoryTotal();i++)
+    for(int i=OrdersHistoryTotal()-1;i>=0;i--)
     {
         if(OrderSelect(i,SELECT_BY_POS)==false) break;
         if(OrderSymbol() != Symbol() || OrderMagicNumber() != MAGICMA) continue;
@@ -132,36 +135,63 @@ void CheckForPosition()
 void CheckForOpen()
 {
     int    res;
-//--- go trading only for first tiks of new bar
+    //--- go trading only for first tiks of new bar
     if(Volume[0]>1) return;
     
-//--- first buy action
-    if(PositionCount+OrderCount == 0)
+    //---ポジションを保有していない
+    if(PositionCount == 0)
     {
-        res=OrderSend((Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue));
-        if(res != -1)
+        //--- first buy action
+        if(OrderCount == 0)
         {
-            int err = GetLastError();
-            Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+            res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
+            if(res != -1)
+            {
+                int err = GetLastError();
+                printf("[OrderSendError] : " , err , " ", ErrorDescription(err));
+                printf("LoopIfDone 自動売買プログラムを開始できません")
+                
+                return;
+            }
+            
+            FollowPositionOrder(MaximumPosition-1);
+            printf("LoopIfDone 自動売買プログラムを開始しました")
+            
+            return;
         }
-        
-        
-        for(int i=1,i<MaximumPosition,i++)
+
+        else
         {
-            res=OrderSend((Symbol(),OP_BUYLIMIT,LotsOptimized(),Ask-i*PriceRange*Point,3,Ask-i*PriceRange*Point-LossCutPoint*Point,Ask-i*PriceRange*Point+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue));
+            res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
             if(res != -1)
             {
                 int err = GetLastError();
                 Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
             }
+
+            allOrderDelete();
+            FollowPositionOrder(MaximumPosition-1);
+
+            return;
         }
 
     }
 
-    if(NowPositionPrices == OldPositionPrices)
+    //--- ポジションを最大で持っている
+    if(PositionCount == MaximumPosition)
     {
-        if(NowOrderPrices == OldOrderPrices) return;
+        allOrderDelete();
+        return;
     }
+
+    //--- 直前の決済が損切りだった
+    //このTickで行われた注文かどうかを判定する必要あり。
+    OrderSelect(OrdersHistoryTotal()-1,SELECT_BY_POS,MODE_HISTORY);
+    if(OrderProfit() < 0)
+    {
+        OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
+    }
+
     else
     {
         for(int i=0;i<MaximumPosition;i++)
@@ -169,7 +199,7 @@ void CheckForOpen()
             if(NowPositionPrices[i]==OldPositionPrices[i]) continue;
             else
             {
-
+                
             }
         }
     }
@@ -184,7 +214,7 @@ void CheckForClose()
    if(Volume[0]>1) return;
    //エラーが出ないように変える必要あり
 //---
-   for(int i=0;i<OrdersTotal();i++)
+   for(int i=OrdersHistoryTotal-1;i>=0;i--)
      {
       if(OrderSelect(i,SELECT_BY_POS,MODE_TRADES)==false) break;
       if(OrderMagicNumber()!=MAGICMA || OrderSymbol()!=Symbol()) continue;
@@ -258,3 +288,68 @@ void OnTick()
 //---
   }
 //+------------------------------------------------------------------+
+int MyOrderSend(
+    int IsLossCut,
+    string   symbol,
+    int      cmd,
+    double   volume,
+    double   price,
+    int      slippage,
+    double   stoploss,
+    double   takeprofit,
+    string   comment     = NULL,
+    int      magic       = 0,
+    datetime expiration  = 0,
+    color    arrow_color = clrNONE
+    )
+    {
+        int res;
+        if(IsLossCut == 0)//損切りあり
+        {
+            res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
+            return res;
+        }
+        else
+        {
+            printf("MyOrderSend function error occured.");
+            return -1;
+        }
+
+        else if(IsLossCut == 1)//損切りなし
+        {
+            res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,0,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
+            return res;
+        }
+    }
+
+void allOrderDelete()
+{
+    for(int i=OrdersHistoryTotal()-1; i>=0; i--)
+    {
+        if(OrderSelect(i,SELECT_BY_POS)==false) break;
+        if(OrderSymbol()!=Symbol() || OrderMagicNumber()!=aMagic) continue;
+
+        int type=OrderType();
+        if(type==OP_BUY || type==OP_SELL) continue;
+
+        int ticket=OrderTicket();
+        if(orderDeleteReliable(ticket)==false);
+        {
+            Print("allOrderDelete: Ticket #",ticket,", failed to delete");
+        }
+    }
+}
+
+void FollowPositionOrder(int OrderNum)
+{
+    for(int i=1;i<=OrderNum;i++)
+    {
+        res=OrderSend(Symbol(),OP_BUYLIMIT,LotsOptimized(),Ask-i*PriceRange*Point,3,Ask-i*PriceRange*Point-LossCutPoint*Point,Ask-i*PriceRange*Point+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
+        if(res != -1)
+        {
+            int err = GetLastError();
+            Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+        }
+    }
+    
+}
