@@ -15,7 +15,7 @@
 input double Lots           =0.1;
 input double DecreaseFactor =0;
 input int    MaximumPosition=3;
-input double PriceRange     =150;
+input double PriceRange     =200;
 input string x="LossCut -> Enable(recommended):0, Disanable:1";
 input int    LossCut        =0;
 
@@ -25,6 +25,8 @@ int    OldPositionCount =0;
 int    NowOrderCount    =0;
 int    OldOrderCount    =0;
 double LossCutPoint     =PriceRange*MaximumPosition;
+
+int    FirstTrade       =0;
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -70,10 +72,14 @@ double LotsOptimized()
 //+------------------------------------------------------------------+
 //| Check for position and order                                     |
 //+------------------------------------------------------------------+
-void CheckForPosition()
+bool CheckForNewPositionAndOrder()
 {
-    OldPositionCount = NowPositionCount;
-    OldOrderCount = NowOrderCount;
+    if(FirstTrade == 0)
+    {
+        FirstTrade++;
+        return true;
+    }
+    if(Volume[0]>1) return false;
 
     NowPositionCount = 0;
     NowOrderCount = 0;
@@ -92,6 +98,10 @@ void CheckForPosition()
             NowOrderCount++;
         }
     }
+
+    if(NowPositionCount == OldPositionCount && NowOrderCount == OldOrderCount) return false;
+    else return true;
+
 }
 //+------------------------------------------------------------------+
 //| Check for open order conditions                                  |
@@ -100,7 +110,7 @@ void CheckForOpen()
 {
     int    res;
     //--- go trading only for first tiks of new bar
-    if(Volume[0]>1) return;
+    //if(Volume[0]>1) return;
     
     //---ポジションを保有していない
     if(NowPositionCount == 0)
@@ -114,7 +124,6 @@ void CheckForOpen()
                 int err = GetLastError();
                 printf("[OrderSendError] : " , err , " ", ErrorDescription(err));
                 printf("LoopIfDone プログラムを起動できません");
-                ExpertRemove();
                 return;
             }
             PositionCheck(res);
@@ -213,8 +222,12 @@ void OnTick()
 
     else
     {
-        CheckForPosition();
-        CheckForOpen();
+        if(CheckForNewPositionAndOrder()==true)
+        {
+            CheckForOpen();
+            OldPositionCount = NowPositionCount;
+            OldOrderCount = NowOrderCount;
+        }
     }
 //---
 }
