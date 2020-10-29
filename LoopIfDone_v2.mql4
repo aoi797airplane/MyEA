@@ -120,7 +120,6 @@ int CheckForNewPositionAndOrder()
 void OnTick()
 {
     int res;
-    if(Volume[0]>1) return;
     
 //--- check for trading
     if(IsTradeAllowed()==false)
