@@ -168,30 +168,53 @@ void OnTick()
             //--- 直前の決済が利確
             if(OrderProfit() > 0)
             {
-                res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
-                if(res == -1)
+                if(NowPositionCount == 0)
                 {
-                    int err = GetLastError();
-                    Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+                    res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,Ask-LossCutPoint*Point,Ask+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
+                    if(res == -1)
+                    {
+                        int err = GetLastError();
+                        Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+                        return;
+                    }
+                    double oop = OrderOpenPrice();
+                    res=OrderSend(Symbol(),OP_BUYLIMIT,LotsOptimized(),oop,3,oop-LossCutPoint*Point,oop+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
+                    if(res == -1)
+                    {
+                        int err = GetLastError();
+                        Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+                        return;
+                    }
+                    //OrderCheck(res);
+                    FarOrderDelete(MAGICMA);
+                    NowPositionCount++;
+                    
+                    OldPositionCount = NowPositionCount;
+                    OldOrderCount = NowOrderCount;
+                    printf("%d, %d",OldPositionCount, OldOrderCount);
+                    Sleep(300);
                     return;
                 }
-                double oop = OrderOpenPrice();
-                res=OrderSend(Symbol(),OP_BUYLIMIT,LotsOptimized(),oop,3,oop-LossCutPoint*Point,oop+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
-                if(res == -1)
+                else if(NowPositionCount > 0)
                 {
-                    int err = GetLastError();
-                    Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+                    double oop = OrderOpenPrice();
+                    res=OrderSend(Symbol(),OP_BUYLIMIT,LotsOptimized(),oop,3,oop-LossCutPoint*Point,oop+PriceRange*Point,"LoopIfDone",MAGICMA,0,Blue);
+                    if(res == -1)
+                    {
+                        int err = GetLastError();
+                        Print("[OrderSendError] : " , err , " ", ErrorDescription(err));
+                        return;
+                    }
+                    //OrderCheck(res);
+                    NowOrderCount++;
+
+                    OldPositionCount = NowPositionCount;
+                    OldOrderCount = NowOrderCount;
+                    printf("%d, %d",OldPositionCount, OldOrderCount);
+                    Sleep(300);
                     return;
                 }
-                //OrderCheck(res);
-                FarOrderDelete(MAGICMA);
-                NowPositionCount++;
                 
-                OldPositionCount = NowPositionCount;
-                OldOrderCount = NowOrderCount;
-                printf("%d, %d",OldPositionCount, OldOrderCount);
-                Sleep(300);
-                return;
             }
 
             //--- 直前の決済が損切り

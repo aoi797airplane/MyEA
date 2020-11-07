@@ -99,6 +99,46 @@ bool CheckTrend()
         return true;
     }
 //+------------------------------------------------------------------+
+//| Check for turning points                                         |
+//+------------------------------------------------------------------+
+bool TurningPoint()
+{
+    if(Volume[0]>1) return;
+
+    int n=10;
+    int n1=10;
+
+    double highTP0,highTP1;
+    double lowTP0,lowTP1;
+    string lastTP;
+
+    double tmpHigh=0, tmpLow=0;
+
+    for(int i=0;i<=n+n10,i++)
+    {
+        if(High[i]>tmpHigh)
+        {
+            tmpHigh = High[i];
+        }
+        if(Low[i]>tmpLow)
+        {
+            tmpLow = Low[i];
+        }
+    }
+    if(tmpHigh==High[n])
+    {
+        if(lastTP=="High") highTP0=tmpHigh;
+        else if(lastTP=="Low")
+        {
+            highTP1 = highTP0;
+            highTP0 = tmpHigh;
+        }
+        else tyokkin=High[i];
+    }
+
+}
+
+//+------------------------------------------------------------------+
 //| Check for open order conditions                                  |
 //+------------------------------------------------------------------+
 void CheckForOpen()
