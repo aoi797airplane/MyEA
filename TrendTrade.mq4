@@ -10,39 +10,40 @@
 #property strict
 #define MAGICMA  20200930
 //--- Inputs
-input double TakeProfit    =500;
+input double TakeProfit    =300;
 input double Lots          =0.1;
 input double TrailingStop  =200;
 input double MaximumRisk   =0.02;
 input double DecreaseFactor=3;
-input int    ADXPeriod       =14;
+input int    ADXPeriod     =14;
+input double ADXBorder     =25;
 
 //--- TrendDirection indicate the direction of trend
 //---  1 -> Up Trend
 //--- -1 -> Down Trend
 int    TrendDirection=0;
+int    OpenOrClose=0;
 double plusDI, minusDI;
 double ADXValue;
 //+------------------------------------------------------------------+
 //| Calculate open positions                                         |
 //+------------------------------------------------------------------+
 int CalculateCurrentOrders(string symbol)
+{
+    int buys=0,sells=0;
+    //---
+    for(int i=OrdersTotal-1;i>=0;i--)
     {
-        int buys=0,sells=0;
-        //---
-        for(int i=0;i<OrdersTotal();i++)
-        {
-            if(OrderSelect(i,SELECT_BY_POS,MODE_TRADES)==false) break;
-            if(OrderSymbol()==Symbol() && OrderMagicNumber()==MAGICMA)
-            {
-                if(OrderType()==OP_BUY)  buys++;
-                if(OrderType()==OP_SELL) sells++;
-            }
-        }
-        //--- return orders volume
-        if(buys>0) return(buys);
-        else       return(-sells);
+        if(OrderSelect(i,SELECT_BY_POS,MODE_TRADES)==false) break;
+        if(OrderSymbol()!=symbol || OrderMagicNumber()==MAGICMA) break;
+        
+        if(OrderType()==OP_BUY)  buys++;
+        if(OrderType()==OP_SELL) sells++;
     }
+    //--- return orders volume
+    if(buys>0) return(buys);
+    else       return(-sells);
+}
 //+------------------------------------------------------------------+
 //| Calculate optimal lot size                                       |
 //+------------------------------------------------------------------+
@@ -79,30 +80,47 @@ double LotsOptimized()
 //+------------------------------------------------------------------+
 //| Check for trend conditions                                       |
 //+------------------------------------------------------------------+
-bool CheckTrend()
+void CheckTrend()
+{
+    int Updown=0;
+    int ADXTrend=0;
+
+    plusDI = iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_PLUSDI,0);
+    minusDI = iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_MINUSDI,0);
+
+    for(int i=0,i<2,i++)
     {
-        int UpDown=0;
-
-        plusDI = iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_PLUSDI,0);
-        minusDI = iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_MINUSDI,0);
-
-        for(int i=0,i<=2,i++)
-        {
-            if(iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_PLUSDI,i) >= 
-                iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_MINUSDI,i))
-                Updown++;
-            else Updown--
-        }
-        if(UpDown>0) TrendDirection=1;
-        if(Updown<0) TrendDirection=-1;
-        ADXValue = iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_MAIN,0);
-        return true;
+        if(iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_PLUSDI,i) >= iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_MINUSDI,i)) 
+            Updown++;
+        else Updown--;
+        if(iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_MAIN,i) > iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_MAIN,i+1)) 
+            ADXTrend++;
+        else ADXTrend--;
     }
+
+    if(UpDown>0) TrendDirection=1;
+    else if(Updown<0) TrendDirection=-1;
+    // TrendDirection:
+    // 1  -> Long
+    // -1 -> Short
+
+    ADXValue = iADX(NULL,0,ADXPeriod,PRICE_CLOSE,MODE_MAIN,0);
+    if(ADXValue > ADXBorder)
+    {
+        if(ADXTrend>0) OpenOrClose=1;
+        else if(ADXTrend<0) OpenOrClose=-1;
+        // OpenOrClose:
+        // 1  -> Open
+        // -1 -> Close
+        // 0  -> retrun false
+    }
+}
 //+------------------------------------------------------------------+
 //| Check for turning points                                         |
 //+------------------------------------------------------------------+
 bool TurningPoint()
 {
+    if(Bars < n+n1) return
     if(Volume[0]>1) return;
 
     int n=10;
@@ -110,19 +128,19 @@ bool TurningPoint()
 
     double highTP0,highTP1;
     double lowTP0,lowTP1;
+
     string lastTP;
+    double reversal_value;
+    double tmpHigh=0, tmpLow=0, revHigh=0, revLow=0;
 
-    double tmpHigh=0, tmpLow=0;
-
-    for(int i=0;i<=n+n10,i++)
+    for(int i=0;i<=n+n1,i++)
     {
-        if(High[i]>tmpHigh)
+        if(High[i]>tmpHigh) tmpHigh = High[i];
+        if(Low[i]>tmpLow) tmpLow = Low[i];
+        if(i>n1)
         {
-            tmpHigh = High[i];
-        }
-        if(Low[i]>tmpLow)
-        {
-            tmpLow = Low[i];
+            if(High[i]>revHigh) revHigh = High[i];
+            if(Low[i]>revLow) revLow = Low[i];
         }
     }
     if(tmpHigh==High[n])
@@ -130,12 +148,34 @@ bool TurningPoint()
         if(lastTP=="High") highTP0=tmpHigh;
         else if(lastTP=="Low")
         {
-            highTP1 = highTP0;
-            highTP0 = tmpHigh;
+            if(tmpHigh>reversal_value)
+            {
+                highTP1 = highTP0;
+                highTP0 = tmpHigh;
+            }
         }
-        else tyokkin=High[i];
-    }
+        else highTP0=tmpHigh;
 
+        lastTP="High";
+        reversal_value=highTP0+(revLow-highTP0)*0.5;
+    }
+    else if(tmpLow==Low[n])
+    {
+        if(lastTP=="Low") lowTP0=tmpLow;
+        else if(lastTP=="High")
+        {
+            if(tmpLow<reversal_value)
+            {
+                lowTP1 = lowTP0;
+                lowTP0 = tmpLow;
+            }
+        }
+        else lowTP0=tmpLow;
+
+        lastTP="Low";
+        reversal_value=lowTP0+(revHigh-lowTP0)*0.5;
+
+    }
 }
 
 //+------------------------------------------------------------------+
@@ -146,18 +186,18 @@ void CheckForOpen()
         int    res;
         //--- go trading only for first tiks of new bar
         if(Volume[0]>1) return;
-        if(ADXValue>25)
+        if(OpenOrClose==1)
         {
             //--- sell conditions
-            if (minusDI>=25)
+            if (TrendDirection==-1)
             {
-                res=OrderSend(Symbol(),OP_SELL,LotsOptimized(),Bid,3,0,Bid-TakeProfit*Point,"MyRSI",MAGICMA,0,Red);
+                res=OrderSend(Symbol(),OP_SELL,LotsOptimized(),Bid,3,0,Bid-TakeProfit*Point,"TrendTrade",MAGICMA,0,Blue);
             }
             return;
             //--- buy conditions
-            if (plusDI>=25)
+            if (TrendDirection==1)
             {
-                res=OrderSend(Symbol(),OP_SELL,LotsOptimized(),Bid,3,0,Bid-TakeProfit*Point,"MyRSI",MAGICMA,0,Red);
+                res=OrderSend(Symbol(),OP_BUY,LotsOptimized(),Ask,3,0,Ask-TakeProfit*Point,"TrendTrade",MAGICMA,0,Red);
             }
             return;
         }
